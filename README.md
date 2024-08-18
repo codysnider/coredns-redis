@@ -1,6 +1,18 @@
 *redis* enables reading zone data from redis database.
 this plugin should be located right next to *etcd* in *plugins.cfg*
 
+...
+secondary:secondary
+etcd:etcd
+redis:github.com/rverst/coredns-redis/plugin
+loop:loop
+forward:forward
+grpc:grpc
+...
+
+## Changes
+This fork enables dynamically loading of zone from redis as soon as zone is created instead of reloading of zones every 10 minutes. If there are no changes, then zones will reloaded every 10 minutes. There should be a way to notify redis plugin to reload zones, but right now this is the best way to deal with this.
+
 ## syntax
 
 ~~~
