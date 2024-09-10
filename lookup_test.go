@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"testing"
-	"fmt"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -214,7 +213,6 @@ func newRedisPlugin() *Redis {
 }
 
 func TestAnswer(t *testing.T) {
-	fmt.Println("lookup test")
 	r := newRedisPlugin()
 	conn := r.Pool.Get()
 	defer conn.Close()
@@ -224,7 +222,7 @@ func TestAnswer(t *testing.T) {
 		for _, cmd := range lookupEntries[i] {
 			err := r.save(zone, cmd[0], cmd[1])
 			if err != nil {
-				fmt.Println("error in redis", err)
+				t.Error("error in redis", err)
 				t.Fail()
 			}
 		}
