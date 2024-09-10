@@ -16,6 +16,7 @@ var zones = []string {
 }
 
 var lookupEntries = [][][]string {
+	// Example.com
 	{
 		{"@",
 			"{\"soa\":{\"ttl\":300, \"minttl\":100, \"mbox\":\"hostmaster.example.com.\",\"ns\":\"ns1.example.com.\",\"refresh\":44,\"retry\":55,\"expire\":66}}",
@@ -44,6 +45,7 @@ var lookupEntries = [][][]string {
 			"\"aaaa\":[{\"ttl\":300, \"ip\":\"::1\"}]}",
 		},
 	},
+	// Example.net
 	{
 		{"@",
 			"{\"soa\":{\"ttl\":300, \"minttl\":100, \"mbox\":\"hostmaster.example.net.\",\"ns\":\"ns1.example.net.\",\"refresh\":44,\"retry\":55,\"expire\":66}," +
@@ -67,6 +69,17 @@ var lookupEntries = [][][]string {
 		},
 		{"_ssh._tcp.host2",
 			"{\"srv\":[{\"ttl\":300, \"target\":\"tcp.example.com.\",\"port\":123,\"priority\":10,\"weight\":100}]}",
+		},
+	},
+	// Example.test
+	{
+		{"@",
+			"{\"soa\":{\"ttl\":300, \"minttl\":100, \"mbox\":\"hostmaster.example.test.\",\"ns\":\"ns1.example.test.\",\"refresh\":44,\"retry\":55,\"expire\":66}," +
+				"\"ns\":[{\"ttl\":300, \"host\":\"ns1.example.test.\"},{\"ttl\":300, \"host\":\"ns2.example.test.\"}]}",
+		},
+		// Host1's IP field contains invalid JSON
+		{"host1",
+			"{\"a\":[{\"ttl\":300, \"ip\":\"5.5.5.5\"}",
 		},
 	},
 }
@@ -189,6 +202,13 @@ var testCases = [][]test.Case{
 			},
 		},
 	},
+	// Malformed data tests
+	{
+		{
+			Qname: "host1.example.test.", Qtype: dns.TypeA,
+			Rcode: dns.RcodeServerFailure,
+		},
+	},
 }
 
 func newRedisPlugin() *Redis {
@@ -240,7 +260,9 @@ func TestAnswer(t *testing.T) {
 			if resp == nil {
 				resp = new(dns.Msg)
 			}
-			test.SortAndCheck(t, resp, tc)
+			if err := test.SortAndCheck(resp, tc); err != nil {
+				t.Error(err)
+			}
 		}
 	}
 }

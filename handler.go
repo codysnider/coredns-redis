@@ -74,6 +74,10 @@ func (redis *Redis) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	extras := make([]dns.RR, 0, 10)
 
 	record := redis.get(location, z)
+	if record == nil {
+		// Record may be nil when the redis read returns an error
+		return redis.errorResponse(state, zone, dns.RcodeServerFailure, nil)
+	}
 
 	switch qtype {
 	case "A":
