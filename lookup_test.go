@@ -213,6 +213,8 @@ func newRedisPlugin() *Redis {
 	*/
 }
 
+// TestAnswer is an integration test which requires a local Redis instance. The test
+// expects an instance on localhost:6379 configured without authentication.
 func TestAnswer(t *testing.T) {
 	fmt.Println("lookup test")
 	r := newRedisPlugin()
@@ -240,7 +242,9 @@ func TestAnswer(t *testing.T) {
 			if resp == nil {
 				resp = new(dns.Msg)
 			}
-			test.SortAndCheck(t, resp, tc)
+			if err := test.SortAndCheck(resp, tc); err != nil {
+				t.Error(err)
+			}
 		}
 	}
 }

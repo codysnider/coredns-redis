@@ -2,7 +2,6 @@ package redis
 
 import (
 	"fmt"
-	// "fmt"
 	"time"
 
 	"github.com/coredns/coredns/plugin"

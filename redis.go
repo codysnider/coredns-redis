@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/miekg/dns"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,11 @@ type Redis struct {
 	LastZoneUpdate time.Time
 }
 
+type RedisScanReply struct {
+	cursor int
+	keys   []string
+}
+
 func (redis *Redis) LoadZones() {
 	var (
 		reply interface{}
@@ -40,15 +46,48 @@ func (redis *Redis) LoadZones() {
 	}
 	defer conn.Close()
 
-	reply, err = conn.Do("KEYS", redis.keyPrefix + "*" + redis.keySuffix)
-	if err != nil {
-		return
+	matchPattern := redis.keyPrefix + "*" + redis.keySuffix
+
+	/*
+		SCAN is a cursor based iterator. This means that at every call of the command,
+		the server returns an updated cursor that the user needs to use as the cursor
+		argument in the next call.
+		https://redis.io/docs/latest/commands/scan
+	*/
+	cursor := 0
+	cursorBatchSize := 1000
+	keysSeen := map[string]bool{}
+	for {
+		reply, err = conn.Do("SCAN", cursor, "MATCH", matchPattern, "COUNT", cursorBatchSize)
+		if err != nil {
+			return
+		}
+
+		scanReply, err := decodeScanReply(reply)
+		if err != nil {
+			return
+		}
+		cursor = scanReply.cursor
+
+		for _, zone := range scanReply.keys {
+			// Note: a given element may be returned multiple times. It is up to
+			// the application to handle the case of duplicated elements
+			if _, found := keysSeen[zone]; !found {
+
+				zone = strings.TrimPrefix(zone, redis.keyPrefix)
+				zone = strings.TrimPrefix(zone, redis.keySuffix)
+
+				zones = append(zones, zone)
+				keysSeen[zone] = true
+			}
+		}
+
+		// Cursor will be 0 after all keys have been read
+		if cursor == 0 {
+			break
+		}
 	}
-	zones, err = redisCon.Strings(reply, nil)
-	for i, _ := range zones {
-		zones[i] = strings.TrimPrefix(zones[i], redis.keyPrefix)
-		zones[i] = strings.TrimSuffix(zones[i], redis.keySuffix)
-	}
+
 	redis.LastZoneUpdate = time.Now()
 	redis.Zones = zones
 }
@@ -466,6 +505,35 @@ func (redis *Redis) load(zone string) *Zone {
 	}
 
 	return z
+}
+
+// decodeScanReply parses redigo's response from the SCAN command and returns it as
+// structured data.
+func decodeScanReply(reply interface{}) (scanReply *RedisScanReply, err error) {
+	scanReply = &RedisScanReply{}
+
+	// Redigo encodes the reply as an interface{}, so here we are converting it to something
+	// useful.  Under the covers, the reply is [][]byte{}.
+
+	// the cursor is []byte encoded in index 0
+	cursorBytes := reply.([]interface{})[0].([]uint8)
+	cursor, err := strconv.Atoi(string(cursorBytes))
+	if err != nil {
+		return nil, err
+	}
+	scanReply.cursor = cursor
+
+	// keys are []byte encoded starting with index 1
+	for _, value := range reply.([]interface{})[1:] {
+
+		redisKeys := value.([]interface{})
+		for _, redisKey := range redisKeys {
+
+			zone := string(redisKey.([]uint8))
+			scanReply.keys = append(scanReply.keys, zone)
+		}
+	}
+	return scanReply, nil
 }
 
 func split255(s string) []string {
