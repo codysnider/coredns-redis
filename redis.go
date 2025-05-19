@@ -2,15 +2,14 @@ package redis
 
 import (
 	"encoding/json"
-	"fmt"
-	"github.com/miekg/dns"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/miekg/dns"
+
 	"github.com/coredns/coredns/plugin"
 	clog "github.com/coredns/coredns/plugin/pkg/log"
-	"github.com/miekg/dns"
 
 	redisCon "github.com/gomodule/redigo/redis"
 )
