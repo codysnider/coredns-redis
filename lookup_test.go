@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"testing"
-	"fmt"
 
 	"github.com/coredns/coredns/plugin/pkg/dnstest"
 	"github.com/coredns/coredns/plugin/test"
@@ -11,21 +10,22 @@ import (
 	"github.com/miekg/dns"
 )
 
-var zones = []string {
+var zones = []string{
 	"example.com.", "example.net.",
 }
 
-var lookupEntries = [][][]string {
+var lookupEntries = [][][]string{
+	// Example.com
 	{
 		{"@",
 			"{\"soa\":{\"ttl\":300, \"minttl\":100, \"mbox\":\"hostmaster.example.com.\",\"ns\":\"ns1.example.com.\",\"refresh\":44,\"retry\":55,\"expire\":66}}",
 		},
 		{"x",
 			"{\"a\":[{\"ttl\":300, \"ip\":\"1.2.3.4\"},{\"ttl\":300, \"ip\":\"5.6.7.8\"}]," +
-			"\"aaaa\":[{\"ttl\":300, \"ip\":\"::1\"}]," +
-			"\"txt\":[{\"ttl\":300, \"text\":\"foo\"},{\"ttl\":300, \"text\":\"bar\"}]," +
-			"\"ns\":[{\"ttl\":300, \"host\":\"ns1.example.com.\"},{\"ttl\":300, \"host\":\"ns2.example.com.\"}]," +
-			"\"mx\":[{\"ttl\":300, \"host\":\"mx1.example.com.\", \"preference\":10},{\"ttl\":300, \"host\":\"mx2.example.com.\", \"preference\":10}]}",
+				"\"aaaa\":[{\"ttl\":300, \"ip\":\"::1\"}]," +
+				"\"txt\":[{\"ttl\":300, \"text\":\"foo\"},{\"ttl\":300, \"text\":\"bar\"}]," +
+				"\"ns\":[{\"ttl\":300, \"host\":\"ns1.example.com.\"},{\"ttl\":300, \"host\":\"ns2.example.com.\"}]," +
+				"\"mx\":[{\"ttl\":300, \"host\":\"mx1.example.com.\", \"preference\":10},{\"ttl\":300, \"host\":\"mx2.example.com.\", \"preference\":10}]}",
 		},
 		{"y",
 			"{\"cname\":[{\"ttl\":300, \"host\":\"x.example.com.\"}]}",
@@ -41,13 +41,14 @@ var lookupEntries = [][][]string {
 		},
 		{"sip",
 			"{\"a\":[{\"ttl\":300, \"ip\":\"7.7.7.7\"}]," +
-			"\"aaaa\":[{\"ttl\":300, \"ip\":\"::1\"}]}",
+				"\"aaaa\":[{\"ttl\":300, \"ip\":\"::1\"}]}",
 		},
 	},
+	// Example.net
 	{
 		{"@",
 			"{\"soa\":{\"ttl\":300, \"minttl\":100, \"mbox\":\"hostmaster.example.net.\",\"ns\":\"ns1.example.net.\",\"refresh\":44,\"retry\":55,\"expire\":66}," +
-			"\"ns\":[{\"ttl\":300, \"host\":\"ns1.example.net.\"},{\"ttl\":300, \"host\":\"ns2.example.net.\"}]}",
+				"\"ns\":[{\"ttl\":300, \"host\":\"ns1.example.net.\"},{\"ttl\":300, \"host\":\"ns2.example.net.\"}]}",
 		},
 		{"sub.*",
 			"{\"txt\":[{\"ttl\":300, \"text\":\"this is not a wildcard\"}]}",
@@ -60,13 +61,24 @@ var lookupEntries = [][][]string {
 		},
 		{"*",
 			"{\"txt\":[{\"ttl\":300, \"text\":\"this is a wildcard\"}]," +
-			"\"mx\":[{\"ttl\":300, \"host\":\"host1.example.net.\",\"preference\": 10}]}",
+				"\"mx\":[{\"ttl\":300, \"host\":\"host1.example.net.\",\"preference\": 10}]}",
 		},
 		{"_ssh._tcp.host1",
 			"{\"srv\":[{\"ttl\":300, \"target\":\"tcp.example.com.\",\"port\":123,\"priority\":10,\"weight\":100}]}",
 		},
 		{"_ssh._tcp.host2",
 			"{\"srv\":[{\"ttl\":300, \"target\":\"tcp.example.com.\",\"port\":123,\"priority\":10,\"weight\":100}]}",
+		},
+	},
+	// Example.test
+	{
+		{"@",
+			"{\"soa\":{\"ttl\":300, \"minttl\":100, \"mbox\":\"hostmaster.example.test.\",\"ns\":\"ns1.example.test.\",\"refresh\":44,\"retry\":55,\"expire\":66}," +
+				"\"ns\":[{\"ttl\":300, \"host\":\"ns1.example.test.\"},{\"ttl\":300, \"host\":\"ns2.example.test.\"}]}",
+		},
+		// Host1's IP field contains invalid JSON
+		{"host1",
+			"{\"a\":[{\"ttl\":300, \"ip\":\"5.5.5.5\"}",
 		},
 	},
 }
@@ -189,6 +201,13 @@ var testCases = [][]test.Case{
 			},
 		},
 	},
+	// Malformed data tests
+	{
+		{
+			Qname: "host1.example.test.", Qtype: dns.TypeA,
+			Rcode: dns.RcodeServerFailure,
+		},
+	},
 }
 
 func newRedisPlugin() *Redis {
@@ -204,27 +223,28 @@ func newRedisPlugin() *Redis {
 	redis.LoadZones()
 	return redis
 	/*
-	return &Redis {
-		keyPrefix: "",
-		keySuffix:"",
-		redisc: client,
-		Ttl: 300,
-	}	redis := new(Redis)
+		return &Redis {
+			keyPrefix: "",
+			keySuffix:"",
+			redisc: client,
+			Ttl: 300,
+		}	redis := new(Redis)
 	*/
 }
 
+// TestAnswer is an integration test which requires a local Redis instance. The test
+// expects an instance on localhost:6379 configured without authentication.
 func TestAnswer(t *testing.T) {
-	fmt.Println("lookup test")
 	r := newRedisPlugin()
 	conn := r.Pool.Get()
 	defer conn.Close()
 
 	for i, zone := range zones {
-		conn.Do("EVAL", "return redis.call('del', unpack(redis.call('keys', ARGV[1])))", 0, r.keyPrefix + zone + r.keySuffix)
+		conn.Do("EVAL", "return redis.call('del', unpack(redis.call('keys', ARGV[1])))", 0, r.keyPrefix+zone+r.keySuffix)
 		for _, cmd := range lookupEntries[i] {
 			err := r.save(zone, cmd[0], cmd[1])
 			if err != nil {
-				fmt.Println("error in redis", err)
+				t.Error("error in redis", err)
 				t.Fail()
 			}
 		}
@@ -240,7 +260,9 @@ func TestAnswer(t *testing.T) {
 			if resp == nil {
 				resp = new(dns.Msg)
 			}
-			test.SortAndCheck(t, resp, tc)
+			if err := test.SortAndCheck(resp, tc); err != nil {
+				t.Error(err)
+			}
 		}
 	}
 }
