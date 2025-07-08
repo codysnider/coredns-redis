@@ -2,7 +2,6 @@ package redis
 
 import (
 	"encoding/json"
-	"fmt"
 	"strconv"
 	"strings"
 	"time"
@@ -39,18 +38,18 @@ func (redis *Redis) KeyCount() int {
 	)
 	conn := redis.Pool.Get()
 	if conn == nil {
-		fmt.Println("error connecting to redis")
+		log.Error("error connecting to redis")
 		return -1;
 	}
 	defer conn.Close()
 	reply, err = conn.Do("DBSIZE")
 	if err != nil {
-		fmt.Println("error getting dbsize from redis:", err)
+		log.Error("error getting dbsize from redis:", err)
 		return -1;
 	}
 	dbsize, err := redisCon.Int(reply, nil)
 	if err != nil {
-		fmt.Println("error parsing dbsize:", err)
+		log.Error("error parsing dbsize:", err)
 		 return -1
 	}
 	return dbsize;
@@ -67,7 +66,7 @@ func (redis *Redis) LoadZones() {
 		zones []string
 	)
 
-	fmt.Println("loading zones")
+	log.Debug("loading zones")
 
 	conn := redis.Pool.Get()
 	if conn == nil {
