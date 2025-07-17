@@ -16,7 +16,7 @@ func (redis *Redis) ServeDNS(ctx context.Context, w dns.ResponseWriter, r *dns.M
 	qname := state.Name()
 	qtype := state.Type()
 
-	if time.Since(redis.LastZoneUpdate) > zoneUpdateTime {
+	if time.Since(redis.LastZoneUpdate) > zoneUpdateTime || redis.lastKeyCount != redis.KeyCount() {
 		redis.LoadZones()
 	}
 

@@ -28,8 +28,32 @@ type Redis struct {
 	Ttl            uint32
 	Zones          []string
 	LastZoneUpdate time.Time
+	lastKeyCount   int
 }
 
+func (redis *Redis) KeyCount() int {
+	var (
+		reply interface{}
+		err error
+	)
+	conn := redis.Pool.Get()
+	if conn == nil {
+		log.Error("error connecting to redis")
+		return -1;
+	}
+	defer conn.Close()
+	reply, err = conn.Do("DBSIZE")
+	if err != nil {
+		log.Error("error getting dbsize from redis:", err)
+		return -1;
+	}
+	dbsize, err := redisCon.Int(reply, nil)
+	if err != nil {
+		log.Error("error parsing dbsize:", err)
+		 return -1
+	}
+	return dbsize;
+} 
 type RedisScanReply struct {
 	cursor int
 	keys   []string
@@ -41,6 +65,8 @@ func (redis *Redis) LoadZones() {
 		err   error
 		zones []string
 	)
+
+	log.Debug("loading zones")
 
 	conn := redis.Pool.Get()
 	if conn == nil {
@@ -92,6 +118,7 @@ func (redis *Redis) LoadZones() {
 	}
 
 	redis.LastZoneUpdate = time.Now()
+	redis.lastKeyCount = redis.KeyCount()
 	redis.Zones = zones
 }
 
