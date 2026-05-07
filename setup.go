@@ -18,6 +18,7 @@ func init() {
 func setup(c *caddy.Controller) error {
 	r, err := redisParse(c)
 	if err != nil {
+		log.Error(err)
 		return plugin.Error("redis", err)
 	}
 
@@ -40,6 +41,7 @@ func redisParse(c *caddy.Controller) (*Redis, error) {
 	)
 
 	for c.Next() {
+		c.RemainingArgs() // consume optional inline args (e.g. zone name) before the block
 		if c.NextBlock() {
 			for {
 				switch c.Val() {
@@ -109,12 +111,9 @@ func redisParse(c *caddy.Controller) (*Redis, error) {
 					break
 				}
 			}
-
 		}
-
 		redis.Connect()
 		redis.LoadZones()
-
 		return &redis, nil
 	}
 	return &Redis{}, nil

@@ -11,7 +11,7 @@ import (
 )
 
 var zones = []string{
-	"example.com.", "example.net.",
+	"example.com.", "example.net.", "example.test.",
 }
 
 var lookupEntries = [][][]string{
@@ -237,6 +237,10 @@ func newRedisPlugin() *Redis {
 func TestAnswer(t *testing.T) {
 	r := newRedisPlugin()
 	conn := r.Pool.Get()
+	if err := conn.Err(); err != nil {
+		conn.Close()
+		t.Skipf("skipping integration test: Redis unavailable at %s: %v", r.redisAddress, err)
+	}
 	defer conn.Close()
 
 	for i, zone := range zones {

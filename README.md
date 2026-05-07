@@ -4,7 +4,7 @@ this plugin should be located right next to *etcd* in *plugins.cfg*
 ...
 secondary:secondary
 etcd:etcd
-redis:github.com/rverst/coredns-redis/plugin
+redis:github.com/mbartsch/coredns-redis
 loop:loop
 forward:forward
 grpc:grpc
@@ -59,6 +59,17 @@ redis {
 }
 ~~~
 
+## testing
+
+`TestRedisParse` runs without any external dependencies.
+
+`TestAnswer` is an integration test that requires a local Redis instance on `localhost:6379` with no authentication. It will be skipped automatically when Redis is unavailable.
+
+```bash
+# start redis, then run:
+go test ./...
+```
+
 ## reverse zones
 
 reverse zones is not supported yet
@@ -89,10 +100,10 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "a":{
+    "a":[{
         "ip" : "1.2.3.4",
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -100,10 +111,10 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "aaaa":{
+    "aaaa":[{
         "ip" : "::1",
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -111,10 +122,10 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "cname":{
+    "cname":[{
         "host" : "x.example.com.",
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -122,10 +133,10 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "txt":{
+    "txt":[{
         "text" : "this is a text",
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -133,10 +144,10 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "ns":{
+    "ns":[{
         "host" : "ns1.example.com.",
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -144,11 +155,11 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "mx":{
-        "host" : "mx1.example.com",
-        "priority" : 10,
+    "mx":[{
+        "host" : "mx1.example.com.",
+        "preference" : 10,
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -156,13 +167,13 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "srv":{
-        "host" : "sip.example.com.",
+    "srv":[{
+        "target" : "sip.example.com.",
         "port" : 555,
         "priority" : 10,
         "weight" : 100,
         "ttl" : 360
-    }
+    }]
 }
 ~~~
 
@@ -172,7 +183,8 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 {
     "soa":{
         "ttl" : 100,
-        "mbox" : "hostmaster.example.com.",
+        "minttl" : 100,
+        "MBox" : "hostmaster.example.com.",
         "ns" : "ns1.example.com.",
         "refresh" : 44,
         "retry" : 55,
@@ -185,11 +197,11 @@ dns RRs are stored in redis as json strings inside a hash map using address as f
 
 ~~~json
 {
-    "caa":{
+    "caa":[{
         "flag" : 0,
         "tag" : "issue",
         "value" : "letsencrypt.org"
-    }
+    }]
 }
 ~~~
 
